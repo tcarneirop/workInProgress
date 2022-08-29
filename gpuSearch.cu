@@ -550,7 +550,7 @@ __global__ void gpu_final_search_32(long board_size, long cutoff_depth,
 
         pnStack = aStack + pnStackPos; /* stack pointer */
         bitfield = mask & ~(aQueenBitCol[numrows] | aQueenBitNegDiag[numrows] | aQueenBitPosDiag[numrows]);
-                
+        
         for (;;)
         {
     
@@ -706,35 +706,45 @@ unsigned long long mcore_final_search(long long board_size, long long cutoff_dep
 
 void call_mcore_search(long long board_size, long long cutoff_depth, int chunk){
 
-
-    
-    printf("\n### MCORE Search ###\n\tSize: %lld, Initial depth: %lld, Chunk: %d, Num threads: %d\n", board_size, cutoff_depth, chunk, omp_get_num_threads());
     
     unsigned long long num_sols_search = 0ULL;
     unsigned long long num_subproblems = 0ULL;
-    Subproblem *subproblem_pool = (Subproblem*)(malloc(sizeof(Subproblem)* 10000000));
+    Subproblem *subproblem_pool = (Subproblem*)(malloc(sizeof(Subproblem)* (unsigned)10000000));
 
-    unsigned long long tree_size = partial_search_64(board_size,cutoff_depth, subproblem_pool);
+    unsigned long long initial_tree_size = partial_search_64(board_size,cutoff_depth, subproblem_pool);
+    unsigned long long mcore_tree_size[omp_get_num_procs()];
+    unsigned long long total_mcore_tree_size = 0ULL;
     num_subproblems = g_numsolutions;
     g_numsolutions = 0ULL;
 
-    printf("\nTree: %llu -- Pool: %llu \n", tree_size, num_subproblems);
+    printf("Tree: %llu -- Pool: %llu \n", initial_tree_size, num_subproblems);
 
   
     printf("\n - Parallel search! \n");
+    printf("\n### MCORE Search ###\n\tSize: %lld, Initial depth: %lld, Chunk: %d, Num threads: %d\n", board_size, cutoff_depth, chunk, omp_get_num_procs());
+    
+    for(int i = 0; i<omp_get_num_procs();++i)
+        mcore_tree_size[i] = 0ULL;
 
     #pragma omp parallel for schedule(dynamic,128) default(none)\
     shared(num_subproblems,board_size, cutoff_depth, subproblem_pool)\
-    reduction(+:tree_size,num_sols_search)
+    reduction(+:mcore_tree_size,num_sols_search)
     for(int s = 0; s<num_subproblems; ++s){
-        tree_size+=mcore_final_search(board_size, cutoff_depth, subproblem_pool+s, s);
+        mcore_tree_size[omp_get_thread_num()]+=mcore_final_search(board_size, cutoff_depth, subproblem_pool+s, s);
         num_sols_search+=subproblem_pool[s].num_sols_sub;
     }
+
+    printf("\nTree for each thread: ");
+    for(int i = 0; i<omp_get_num_procs();++i){
+        printf("\nThread %d: %llu", i, mcore_tree_size[i]);
+        total_mcore_tree_size+=mcore_tree_size[i];
+    }
+
 
 
     if (num_sols_search != 0)
     {
-        printf("PARALLEL SEARCH: size %lld, Tree: %llu,  solutions: %llu\n", board_size, tree_size, num_sols_search*2);
+        printf("\nPARALLEL SEARCH: size %lld, Tree: %llu,  solutions: %llu\n", board_size,total_mcore_tree_size+initial_tree_size, num_sols_search*2);
     }
     else
     {
@@ -890,7 +900,7 @@ int main(int argc, char** argv)
 
     int boardsize = atoi(argv[2]);
 
-    if(search < 0 || search > 2 || argc < 4){
+    if(search < 0 || search > 3 || argc < 4){
         printf("### Wrong Parameters ###\n");
         return 1;
 
@@ -912,6 +922,18 @@ int main(int argc, char** argv)
          call_gpu_search_64(boardsize, (long)(atoi(argv[3])), atoi(argv[4]));         
     }
 
+    if(search == 3){
+
+        //I was verifying whether avoiding using 64 bits would improve something... 
+        //exec, size, search, depth, block size; 
+        // call_multi_gpu_search(boardsize, (long)(atoi(argv[3])), atoi(argv[4]));         
+    }
+    if(search == 4){
+
+        //I was verifying whether avoiding using 64 bits would improve something... 
+        //exec, size, search, depth, block size; 
+        // call_cpu_multi_gpu_search(boardsize, (long)(atoi(argv[3])), atoi(argv[4]));         
+    }
     return 0;
 }
 
