@@ -433,12 +433,12 @@ unsigned long long call_mcore_final_search(long long board_size, unsigned long l
     unsigned long long num_sols_search = 0ULL;
     unsigned long long total_mcore_tree_size = 0ULL;
 
-    printf("\n### MCORE Search ###\n\tSize: %lld, Initial depth: %lld, Chunk: %d, Num threads: %d\n", board_size, cutoff_depth, chunk, omp_get_num_procs());
+    printf("\n### MCORE Search ###\n\tNumber of subproblems: %lld - Size: %lld, Initial depth: %lld, Chunk: %d, Num threads: %d\n", num_subproblems, board_size, cutoff_depth, 8, omp_get_num_procs());
     
     for(int i = 0; i<omp_get_num_procs();++i)
         mcore_tree_size[i] = 0ULL;
 
-    #pragma omp parallel for schedule(dynamic,128) default(none)\
+    #pragma omp parallel for schedule(dynamic,8) default(none)\
     shared(num_subproblems,board_size, cutoff_depth, subproblem_pool)\
     reduction(+:mcore_tree_size,num_sols_search)
     for(int s = 0; s<num_subproblems; ++s){
@@ -458,6 +458,7 @@ unsigned long long call_mcore_final_search(long long board_size, unsigned long l
 }
 
 
+
 void call_mcore_search(long long board_size, long long cutoff_depth, int chunk){
     
     unsigned long long num_sols_search = 0ULL;
@@ -470,8 +471,6 @@ void call_mcore_search(long long board_size, long long cutoff_depth, int chunk){
     g_numsolutions = 0ULL;
 
     printf("Tree: %llu -- Pool: %llu \n", initial_tree_size, num_subproblems);
-
-  
     printf("\n - Parallel search! \n");
 
     total_mcore_tree_size =+call_mcore_final_search(board_size, num_subproblems, cutoff_depth, chunk, subproblem_pool, &num_sols_search);
@@ -490,9 +489,242 @@ void call_mcore_search(long long board_size, long long cutoff_depth, int chunk){
 }////////////////////////////////////////////////
 
 
+void call_multigpu_kernel(long long board_size, long long cutoff_depth, int block_size, 
+    unsigned long long n_explorers,  Subproblem *subproblems_h, unsigned long long *vector_of_tree_size_h, unsigned long long *sols_h, int gpu_id){
+
+    unsigned long long int *vector_of_tree_size_d;
+    unsigned long long int *sols_d;
+    Subproblem *subproblems_d;
+
+    cudaSetDevice(gpu_id);
+
+    cudaFuncSetCacheConfig(gpu_final_search_64, cudaFuncCachePreferL1);
+
+    cudaMalloc((void**) &vector_of_tree_size_d,n_explorers*sizeof(unsigned long long int));
+    cudaMalloc((void**) &sols_d,n_explorers*sizeof(unsigned long long int));
+    cudaMalloc((void**) &subproblems_d,n_explorers*sizeof(Subproblem));
+
+    cudaMemcpy(subproblems_d, subproblems_h, n_explorers * sizeof(Subproblem), cudaMemcpyHostToDevice);
+
+    int num_blocks = ceil((double)n_explorers/ block_size);
+
+    printf("\n### 64 bits-based Kernel ###\n");
+    printf("\nSubproblems: %lld - Num blocks: %d - Block size: %d ###\n", n_explorers, num_blocks, block_size);
+
+    gpu_final_search_64<<< num_blocks, block_size>>>(board_size,cutoff_depth,n_explorers,subproblems_d,vector_of_tree_size_d,sols_d);
+
+    gpuErrchk( cudaPeekAtLastError() );
+    gpuErrchk( cudaDeviceSynchronize() );
+
+    cudaMemcpy(vector_of_tree_size_h,vector_of_tree_size_d,n_explorers*sizeof(unsigned long long int),cudaMemcpyDeviceToHost);
+    cudaMemcpy(sols_h,sols_d,n_explorers*sizeof(unsigned long long int),cudaMemcpyDeviceToHost);
+
+    cudaFree(vector_of_tree_size_d);
+    cudaFree(sols_d);
+    cudaFree(subproblems_d);
 
 
-void old_call_gpu_search_64(long long board_size, long long cutoff_depth, int block_size){
+}
+
+
+void call_gpu_search_64(long long board_size, long long cutoff_depth, int block_size){
+
+    printf("\n### 64 bits-based BP-DFS search. ###\n");
+
+    double initial_time = rtclock();
+    unsigned long long num_sols_search = 0ULL;
+    unsigned long long n_explorers = 0ULL;
+    Subproblem *subproblems_h = (Subproblem*)(malloc(sizeof(Subproblem)* (unsigned)10000000));
+
+    unsigned long long gpu_tree_size = 0ULL;
+    unsigned long long initial_tree_size = partial_search_64(board_size,cutoff_depth, subproblems_h);
+    n_explorers = g_numsolutions;
+
+    printf("\nPartial serach: %llu -- Pool: %llu \n", initial_tree_size, n_explorers);
+
+    unsigned long long int *vector_of_tree_size_h = (unsigned long long int*)malloc(sizeof(unsigned long long int)*n_explorers );
+    unsigned long long int *sols_h = (unsigned long long int*)malloc(sizeof(unsigned long long int)*n_explorers );
+
+    call_multigpu_kernel(board_size, cutoff_depth,block_size, n_explorers, subproblems_h, vector_of_tree_size_h, sols_h, 0);
+
+    for(int i = 0; i<n_explorers;++i){
+        if(sols_h[i]>0)
+            num_sols_search += sols_h[i];
+        if(vector_of_tree_size_h[i]>0)
+            gpu_tree_size +=vector_of_tree_size_h[i];
+    }
+
+    double final_time = rtclock();
+
+    printf("\nGPU Tree size: %llu\nTotal tree size: %llu\nNumber of solutions found: %llu.\n", gpu_tree_size,(initial_tree_size+gpu_tree_size),num_sols_search*2LLU );
+    printf("\nElapsed total: %.3f\n", (final_time-initial_time));
+
+    free(sols_h);
+    free(vector_of_tree_size_h);
+
+}////////////////////////////////////////////////
+
+
+unsigned long long get_cpu_load(float percent, unsigned long long num_subproblems){
+    return (unsigned long long)(num_subproblems*percent);
+}
+
+unsigned long long get_remainder_load(unsigned int gpu_count, unsigned long long num_subproblems){
+    return num_subproblems/gpu_count;
+}
+
+void  get_load_each_gpu(unsigned long long gpu_load, int num_gpus, unsigned long long *device_load){
+
+    for(int device = 0; device<num_gpus;++device){
+        device_load[device] = gpu_load/num_gpus;
+        if(device == (num_gpus-1)){
+            device_load[device]+= gpu_load%num_gpus;
+        }
+    }
+}//////////
+
+
+void call_cpu_multi_gpu_search(long long board_size, long long cutoff_depth, int block_size, float cpup, int chunk){
+
+
+    printf("\n### CPU-GPU bit-based BP-DFS search. ###\n");
+
+    double initial_time = rtclock();
+
+
+    unsigned long long num_sols_search = 0ULL;
+
+
+    unsigned long long num_subproblems = 0ULL;
+    unsigned long long gpu_load = 0ULL;
+    unsigned long long cpu_load = 0ULL;
+
+    int num_gpus = 0;
+    printf("\nNumber of GPUS: %d\n", cudaGetDeviceCount( &num_gpus ) );
+    unsigned long long device_load[num_gpus];
+
+    Subproblem *subproblems_h = (Subproblem*)(malloc(sizeof(Subproblem)* (unsigned)10000000));
+
+
+    unsigned long long gpu_tree_size = 0ULL;
+    unsigned long long mcore_tree_size = 0ULL;
+    unsigned long long initial_tree_size = partial_search_64(board_size,cutoff_depth, subproblems_h);
+
+    num_subproblems = g_numsolutions;
+
+    printf("\nPartial serach: %llu -- Pool: %llu \n", initial_tree_size, num_subproblems);
+
+    unsigned long long int *vector_of_tree_size_h = (unsigned long long int*)malloc(sizeof(unsigned long long int)*num_subproblems);
+    unsigned long long int *sols_h = (unsigned long long int*)malloc(sizeof(unsigned long long int)*num_subproblems);
+
+
+    omp_set_nested (1);
+
+    cpu_load = get_cpu_load(cpup, num_subproblems);
+    gpu_load = num_subproblems - cpu_load;
+    get_load_each_gpu(gpu_load, num_gpus, device_load);
+
+
+    printf("\nTotal CPU load: %llu - CPU percent: %f - GPU load: %llu", cpu_load, cpup, gpu_load);
+    printf("\nLoad each gpu:");
+    for(int device = 0; device<num_gpus;++device){
+        printf("\nDevice: %d - load : %llu ", device, device_load[device]);
+
+    }
+
+    //exit(1);
+
+
+    #pragma omp parallel for default(none)\
+    shared(num_subproblems,board_size, num_gpus, cpu_load, gpu_load, block_size, cutoff_depth, device_load, subproblems_h, mcore_tree_size, vector_of_tree_size_h, sols_h,num_sols_search,chunk)
+    for(int device = 0; device<=num_gpus; ++device){
+        if(device<num_gpus){//gpu
+            unsigned long long local_stride = device * (gpu_load/num_gpus);
+
+            call_multigpu_kernel(board_size, cutoff_depth,block_size, device_load[device], 
+                subproblems_h+local_stride, vector_of_tree_size_h+local_stride, sols_h+local_stride, device);
+
+        }//for each gpu device
+        else{
+            if(cpu_load>0){
+                // subproblems_h+gpu_load a stride -- after the gpu load
+                //
+                mcore_tree_size+=call_mcore_final_search(board_size, cpu_load, cutoff_depth, 
+                    chunk, subproblems_h+gpu_load, &num_sols_search);
+
+            }//if the GPU participates in the search
+        }//cpu
+       
+    }
+   
+   
+    //reduction of the GPU tree and GPU num sols
+    for(int i = 0; i<gpu_load;++i){
+        if(sols_h[i]>0)
+            num_sols_search += sols_h[i];
+        if(vector_of_tree_size_h[i]>0)
+            gpu_tree_size +=vector_of_tree_size_h[i];
+    }
+
+    double final_time = rtclock();
+
+    printf("\nGPU Tree size: %llu\nTotal tree size: %llu\nNumber of solutions found: %llu.\n", gpu_tree_size,(initial_tree_size+gpu_tree_size),num_sols_search*2LLU );
+    printf("\nElapsed total: %.3f\n", (final_time-initial_time));
+
+    free(sols_h);
+    free(vector_of_tree_size_h);
+
+
+}   
+
+
+
+/* main routine for N Queens program.*/
+int main(int argc, char** argv)
+{
+    
+    int search = atoi(argv[1]);
+
+    int boardsize = atoi(argv[2]);
+
+    if(search < 0 || search > 3 || argc < 6){
+        printf("### Wrong Parameters ###\n");
+        return 1;
+
+    }
+
+    if(search == 0){
+        //exec, size, search, depth, chunk; 
+        call_mcore_search(boardsize, (long long)(atoi(argv[3])), atoi(argv[4]));
+    }
+    if(search == 1){
+
+        //I was verifying whether avoiding using 64 bits would improve something... 
+        //exec, size, search, depth, block size; 
+         call_gpu_search_64(boardsize, (long)(atoi(argv[3])), atoi(argv[4]));         
+    }
+
+    if(search == 2){
+
+        //I was verifying whether avoiding using 64 bits would improve something... 
+        //exec, size, search, depth, block size, cpu percent; 
+        float cpup =  (atoi(argv[5]))/100.f;
+        call_cpu_multi_gpu_search(boardsize, (long)(atoi(argv[3])), atoi(argv[4]), cpup, 128);         
+    }
+    if(search == 4){
+
+        //I was verifying whether avoiding using 64 bits would improve something... 
+        //exec, size, search, depth, block size; 
+        // call_cpu_multi_gpu_search(boardsize, (long)(atoi(argv[3])), atoi(argv[4]));         
+    }
+    return 0;
+}
+
+
+
+
+
+void single_gpu_call_gpu_search_64(long long board_size, long long cutoff_depth, int block_size){
 
     printf("\n### 64 bits-based BP-DFS search. ###\n");
 
@@ -557,123 +789,4 @@ void old_call_gpu_search_64(long long board_size, long long cutoff_depth, int bl
     free(sols_h);
     free(vector_of_tree_size_h);
 }////////////////////////////////////////////////
-
-
-
-void call_multigpu_kernel(long long board_size, long long cutoff_depth, int block_size, 
-    unsigned long long n_explorers,  Subproblem *subproblems_h, unsigned long long *vector_of_tree_size_h, unsigned long long *sols_h, int gpu_id){
-
-    unsigned long long int *vector_of_tree_size_d;
-    unsigned long long int *sols_d;
-    Subproblem *subproblems_d;
-
-    cudaSetDevice(gpu_id);
-
-    cudaFuncSetCacheConfig(gpu_final_search_64, cudaFuncCachePreferL1);
-
-    cudaMalloc((void**) &vector_of_tree_size_d,n_explorers*sizeof(unsigned long long int));
-    cudaMalloc((void**) &sols_d,n_explorers*sizeof(unsigned long long int));
-    cudaMalloc((void**) &subproblems_d,n_explorers*sizeof(Subproblem));
-
-    cudaMemcpy(subproblems_d, subproblems_h, n_explorers * sizeof(Subproblem), cudaMemcpyHostToDevice);
-
-    int num_blocks = ceil((double)n_explorers/ block_size);
-
-    printf("\n### 64 bits-based Kernel ###\n");
-    printf("\nSubproblems: %lld - Num blocks: %d - Block size: %d ###\n", n_explorers, num_blocks, block_size);
-
-    gpu_final_search_64<<< num_blocks, block_size>>>(board_size,cutoff_depth,n_explorers,subproblems_d,vector_of_tree_size_d,sols_d);
-
-    gpuErrchk( cudaPeekAtLastError() );
-    gpuErrchk( cudaDeviceSynchronize() );
-
-    cudaMemcpy(vector_of_tree_size_h,vector_of_tree_size_d,n_explorers*sizeof(unsigned long long int),cudaMemcpyDeviceToHost);
-    cudaMemcpy(sols_h,sols_d,n_explorers*sizeof(unsigned long long int),cudaMemcpyDeviceToHost);
-
-    cudaFree(vector_of_tree_size_d);
-    cudaFree(sols_d);
-    cudaFree(subproblems_d);
-
-
-}
-
-void call_gpu_search_64(long long board_size, long long cutoff_depth, int block_size){
-
-    printf("\n### 64 bits-based BP-DFS search. ###\n");
-
-    double initial_time = rtclock();
-    unsigned long long num_sols_search = 0ULL;
-    unsigned long long n_explorers = 0ULL;
-    Subproblem *subproblems_h = (Subproblem*)(malloc(sizeof(Subproblem)* (unsigned)10000000));
-
-    unsigned long long gpu_tree_size = 0ULL;
-    unsigned long long initial_tree_size = partial_search_64(board_size,cutoff_depth, subproblems_h);
-    n_explorers = g_numsolutions;
-
-    printf("\nPartial serach: %llu -- Pool: %llu \n", initial_tree_size, n_explorers);
-
-    unsigned long long int *vector_of_tree_size_h = (unsigned long long int*)malloc(sizeof(unsigned long long int)*n_explorers );
-    unsigned long long int *sols_h = (unsigned long long int*)malloc(sizeof(unsigned long long int)*n_explorers );
-
-    call_multigpu_kernel(board_size, cutoff_depth,block_size, n_explorers, subproblems_h, vector_of_tree_size_h, sols_h, 0);
-
-    for(int i = 0; i<n_explorers;++i){
-        if(sols_h[i]>0)
-            num_sols_search += sols_h[i];
-        if(vector_of_tree_size_h[i]>0)
-            gpu_tree_size +=vector_of_tree_size_h[i];
-    }
-
-    double final_time = rtclock();
-
-    printf("\nGPU Tree size: %llu\nTotal tree size: %llu\nNumber of solutions found: %llu.\n", gpu_tree_size,(initial_tree_size+gpu_tree_size),num_sols_search*2LLU );
-    printf("\nElapsed total: %.3f\n", (final_time-initial_time));
-
-    free(sols_h);
-    free(vector_of_tree_size_h);
-
-}////////////////////////////////////////////////
-
-
-
-
-/* main routine for N Queens program.*/
-int main(int argc, char** argv)
-{
-    
-    int search = atoi(argv[1]);
-
-    int boardsize = atoi(argv[2]);
-
-    if(search < 0 || search > 3 || argc < 4){
-        printf("### Wrong Parameters ###\n");
-        return 1;
-
-    }
-
-    if(search == 0){
-        //exec, size, search, depth, chunk; 
-        call_mcore_search(boardsize, (long long)(atoi(argv[3])), atoi(argv[4]));
-    }
-    if(search == 1){
-
-        //I was verifying whether avoiding using 64 bits would improve something... 
-        //exec, size, search, depth, block size; 
-         call_gpu_search_64(boardsize, (long)(atoi(argv[3])), atoi(argv[4]));         
-    }
-
-    if(search == 3){
-
-        //I was verifying whether avoiding using 64 bits would improve something... 
-        //exec, size, search, depth, block size; 
-        // call_multi_gpu_search(boardsize, (long)(atoi(argv[3])), atoi(argv[4]));         
-    }
-    if(search == 4){
-
-        //I was verifying whether avoiding using 64 bits would improve something... 
-        //exec, size, search, depth, block size; 
-        // call_cpu_multi_gpu_search(boardsize, (long)(atoi(argv[3])), atoi(argv[4]));         
-    }
-    return 0;
-}
 
