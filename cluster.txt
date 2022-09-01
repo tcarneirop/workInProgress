@@ -3,3 +3,12 @@
 put wp.tar 
 
 ssh -i ~/.ssh/id_rsa it4i-tcarn@karolina.it4i.cz
+
+nvcc -Xcompiler -fopenmp -O3 gpuSearch.cu 
+
+qsub -A DD-22-62 -q qgpu -l select=1 -I
+module load AOCC
+module load cuda
+
+
+qsub -A DD-22-62 -q qnvidia -l select=1 ./myjob.sh
