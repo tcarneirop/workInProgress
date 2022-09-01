@@ -681,8 +681,10 @@ void call_cpu_multi_gpu_search(long long board_size, long long cutoff_depth, int
     if(cpu_load>0.f)
         printf("\n\tMCORE Tree size: %llu",mcore_tree_size);
     printf("\n\tGPU Tree size: %llu",gpu_tree_size);
-    printf("\n\nElapsed TIME: %.3f\n", (final_time-initial_time));
 
+    printf("\nNumber of solutions found: %llu", num_sols_search*2LLU );
+
+    printf("\n\nElapsed TIME: %.3f\n", (final_time-initial_time));
     free(sols_h);
     free(vector_of_tree_size_h);
 
