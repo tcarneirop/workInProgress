@@ -472,8 +472,8 @@ void call_mcore_search(long long board_size, long long cutoff_depth, int chunk){
     num_subproblems = g_numsolutions;
     g_numsolutions = 0ULL;
 
-    printf("\nTree: %llu -- Pool: %llu \n", initial_tree_size, num_subproblems);
-    printf("\n- Parallel search! \n");
+    printf("\nPartial tree: %llu -- Pool: %llu \n", initial_tree_size, num_subproblems);
+
 
     total_mcore_tree_size =+call_mcore_final_search(board_size, num_subproblems, cutoff_depth, chunk, subproblem_pool, &num_sols_search);
 
