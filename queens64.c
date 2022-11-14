@@ -314,11 +314,11 @@ void Nqueen(long long int board_size)
             {
                 /* We have no more rows to process; we found a solution. */
                 /* Comment out the call to printtable in order to print the solutions as board position*/
-                printtable(board_size, aQueenBitRes, g_numsolutions + 1,tree_size);
+                //printtable(board_size, aQueenBitRes, g_numsolutions + 1,tree_size);
                 ++g_numsolutions;
                 bitfield = *--pnStack;
                 --numrows;
-                exit(1);
+                //exit(1);
                 continue;
             }
         }
