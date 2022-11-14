@@ -73,7 +73,6 @@ typedef struct subproblem{
     long long int pnStackPos;
     long long numrows; /* numrows redundant - could use stack */
     unsigned long long num_sols_sub;
-  
 } Subproblem;
 
 
