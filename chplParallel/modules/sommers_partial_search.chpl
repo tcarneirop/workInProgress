@@ -1,24 +1,29 @@
 
-module sommers_serial{
+module sommers_partial_search{
 
     use sommers_node_module;
     use CTypes;
+    //var MAX_BOARDSIZE = 32;
 
-    proc queens_sommers_partial_search(const board_size:int, const c:int, subproblem_pool: [] sommers_subproblem){
+    proc queens_sommers_partial_search(const board_size:int, const initial_depth:int, 
+        ref subproblems_pool: [] Sommers_subproblem){
 
     	var aQueenBitRes: [0..#MAX_BOARDSIZE] int;     // results 
         var aQueenBitCol: [0..#MAX_BOARDSIZE] int;     // marks colummns which already have queens 
         var aQueenBitPosDiag: [0..#MAX_BOARDSIZE] int; // marks "positive diagonals" which already have queens 
         var aQueenBitNegDiag: [0..#MAX_BOARDSIZE] int; // marks "negative diagonals" which already have queens 
         var aStack: [0..MAX_BOARDSIZE + 1] int;        // we use a stack instead of recursion 
-        
+        //////////
+        // OK
+        /////////
+
         //register long long int* pnStack;
         
         var stack_position: int = 0;
         var numrows: int = 0;
         var lsb: uint(64);
         var bitfield: uint(64);
-        var numsolutions: uint(64) = 0;
+        var numsolutions: int = 0;
         var tree_size: uint(64) = 0;
 
         var i: int;
@@ -91,9 +96,10 @@ module sommers_serial{
                     numrows-=1;
                     continue;
                 }
-                bitfield &= ~lsb; 
 
+                bitfield &= ~lsb; 
                 aQueenBitRes[numrows] = lsb:int; // save the result */
+
                 if (numrows < initial_depth) // we still have more rows to process? */
                 {
                 	//long long int n = numrows++; 
@@ -113,11 +119,15 @@ module sommers_serial{
 
                     if(numrows == initial_depth){
                         
-                        subproblem_pool[numsolutions].aQueenBitRes = aQueenBitRes;
-                        subproblem_pool[numsolutions].aQueenBitCol = aQueenBitCol;
-                        subproblem_pool[numsolutions].aQueenBitPosDiag = aQueenBitPosDiag;
-                        subproblem_pool[numsolutions].aQueenBitNegDiag = aQueenBitNegDiag;
-                        subproblem_pool[numsolutions].subproblem_stack = aStack;
+                        for i in 0..initial_depth do{
+                            subproblems_pool[numsolutions].aQueenBitRes[i] = aQueenBitRes[i];
+                            subproblems_pool[numsolutions].aQueenBitCol[i] = aQueenBitCol[i];
+                            subproblems_pool[numsolutions].aQueenBitPosDiag[i] = aQueenBitPosDiag[i];
+                            subproblems_pool[numsolutions].aQueenBitNegDiag[i] = aQueenBitNegDiag[i]; 
+                        }
+
+                        for i in 0..initial_depth+2 do 
+                            subproblems_pool[numsolutions].subproblem_stack[i] = aStack[i];
                    
                         numsolutions+=1;
                     }
@@ -135,6 +145,7 @@ module sommers_serial{
             }//while
         }
 
-    }
-
-}
+        writeln("\nNumber of Solutios: ", numsolutions,".\n");
+        for i in 0..#numsolutions do writeln(subproblems_pool[i]);
+    }//partial search
+}//module

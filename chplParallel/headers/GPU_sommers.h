@@ -1,7 +1,7 @@
 #ifndef GPU_QUEENS_H
 #define GPU_QUEENS_H
 
-#define MAX_BOARDSIZE 32
+#define MAX_BOARDSIZE 64
 
 
 typedef struct sommers_subproblem{

@@ -1,5 +1,4 @@
 
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -181,7 +180,6 @@ unsigned long long partial_search_64(long long board_size, long long cutoff_dept
             }
             
             bitfield &= ~lsb; /* toggle off this bit so we don't try it again */
-
             aQueenBitRes[numrows] = lsb; /* save the result */
 
             if (numrows < cutoff_depth) /* we still have more rows to process? */
@@ -699,7 +697,7 @@ int main(int argc, char** argv)
 
     int boardsize = atoi(argv[2]);
 
-    if(search < 0 || search > 3 || argc < 6){
+    if(search < 0 || search > 3 || argc < 4){
         printf("### Wrong Parameters ###\n");
         return 1;
 
