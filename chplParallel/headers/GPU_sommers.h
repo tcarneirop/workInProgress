@@ -25,7 +25,8 @@ extern "C" {
 #endif
 
 void GPU_sommers_call_multigpu_kernel(long long board_size, long long cutoff_depth, int block_size, 
-    unsigned long long n_explorers,  SommersSubproblem *subproblems_h, unsigned long long *vector_of_tree_size_h, unsigned long long *sols_h, int gpu_id);
+    unsigned long long n_explorers,  SommersSubproblem *subproblems_h, 
+    unsigned long long *vector_of_tree_size_h, unsigned long long *sols_h, int gpu_id);
 
 #ifdef __cplusplus
 }
