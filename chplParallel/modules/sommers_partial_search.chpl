@@ -3,7 +3,6 @@ module sommers_partial_search{
 
     use sommers_node_module;
     use CTypes;
-    //var MAX_BOARDSIZE = 32;
 
     proc queens_sommers_partial_search(const board_size:int, const initial_depth:int, 
         ref subproblems_pool: [] Sommers_subproblem){
@@ -13,14 +12,9 @@ module sommers_partial_search{
         var aQueenBitPosDiag: [0..#MAX_BOARDSIZE] int; // marks "positive diagonals" which already have queens 
         var aQueenBitNegDiag: [0..#MAX_BOARDSIZE] int; // marks "negative diagonals" which already have queens 
         var aStack: [0..MAX_BOARDSIZE + 1] int;        // we use a stack instead of recursion 
-        //////////
-        // OK
-        /////////
 
-        //register long long int* pnStack;
-        
         var stack_position: int = 0;
-        var numrows: int = 0;
+        var numrows: int = initial_depth;
         var lsb: uint(64);
         var bitfield: uint(64);
         var numsolutions: int = 0;
@@ -116,9 +110,7 @@ module sommers_partial_search{
                     bitfield = (mask & ~(aQueenBitCol[numrows] | aQueenBitNegDiag[numrows] | aQueenBitPosDiag[numrows])):uint(64);
                     tree_size+=1;
 
-
                     if(numrows == initial_depth){
-                        
                         for i in 0..initial_depth do{
                             subproblems_pool[numsolutions].aQueenBitRes[i] = aQueenBitRes[i];
                             subproblems_pool[numsolutions].aQueenBitCol[i] = aQueenBitCol[i];

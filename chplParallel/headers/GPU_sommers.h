@@ -11,9 +11,7 @@ typedef struct sommers_subproblem{
     long long  aQueenBitPosDiag[MAX_BOARDSIZE]; /* marks "positive diagonals" which already have queens */
     long long  aQueenBitNegDiag[MAX_BOARDSIZE]; /* marks "negative diagonals" which already have queens */
     long long  subproblem_stack[MAX_BOARDSIZE+2]; /* we use a stack instead of recursion */
-  
-    long long pnStackPos;
-    long long numrows;
+    long long   pnStackPos;
     unsigned long long num_sols_sub;
 
 } SommersSubproblem;

@@ -68,9 +68,7 @@ typedef struct subproblem{
     long long  aQueenBitPosDiag[MAX_BOARDSIZE]; /* marks "positive diagonals" which already have queens */
     long long  aQueenBitNegDiag[MAX_BOARDSIZE]; /* marks "negative diagonals" which already have queens */
     long long  subproblem_stack[MAX_BOARDSIZE+2]; /* we use a stack instead of recursion */
-  
-    long long int pnStackPos;
-    long long numrows; /* numrows redundant - could use stack */
+    long long   pnStackPos;
     unsigned long long num_sols_sub;
 } Subproblem;
 
@@ -251,12 +249,12 @@ __global__ void gpu_final_search_64(long long board_size, long long cutoff_depth
        // long long* aQueenBitNegDiag = subproblems[idx].aQueenBitNegDiag ; 
        // long long* aStack =           subproblems[idx].subproblem_stack ; 
 
-        long long aQueenBitCol[32]; 
-        long long aQueenBitPosDiag[32]; 
-        long long aQueenBitNegDiag[32];  
-        long long aStack[32]; 
+        long long aQueenBitCol[MAX_BOARDSIZE]; 
+        long long aQueenBitPosDiag[MAX_BOARDSIZE]; 
+        long long aQueenBitNegDiag[MAX_BOARDSIZE];  
+        long long aStack[MAX_BOARDSIZE]; 
 
-        long long int pnStackPos = subproblems[idx].pnStackPos;
+        //long long int pnStackPos = subproblems[idx].pnStackPos;
 
         long long *pnStack;
 
@@ -277,11 +275,11 @@ __global__ void gpu_final_search_64(long long board_size, long long cutoff_depth
             aQueenBitCol[i]  =     subproblems[idx].aQueenBitCol[i] ; 
             aQueenBitPosDiag[i]  = subproblems[idx].aQueenBitPosDiag[i] ; 
             aQueenBitNegDiag[i]  = subproblems[idx].aQueenBitNegDiag[i]  ; 
-            aStack[i]  =           subproblems[idx].subproblem_stack[i]  ; 
+            aStack[i]  =            subproblems[idx].subproblem_stack[i]  ; 
         }
         
 
-        pnStack = aStack + pnStackPos; /* stack pointer */
+        pnStack = aStack; /* stack pointer */
         bitfield = mask & ~(aQueenBitCol[numrows] | aQueenBitNegDiag[numrows] | aQueenBitPosDiag[numrows]);
                 
         for (;;)
@@ -350,22 +348,25 @@ unsigned long long mcore_final_search(long long board_size, long long cutoff_dep
 
     register long long *pnStack;
     
-    long long int pnStackPos = subproblem->pnStackPos;
+    //long long int pnStackPos = subproblem->pnStackPos;
 
     long long int board_minus = board_size - 1LL; /* board size - 1 */
     long long int mask = (1LL << board_size) - 1LL; /* if board size is N, mask consists of N 1's */
 
     unsigned long long local_num_sols = 0ULL;
-
+    unsigned long long tree_size = 0ULL;
+    
     register unsigned long long lsb; 
     register unsigned long long bitfield; 
 
-    unsigned long long tree_size = 0ULL;
+    
 
 
     register long long numrows = cutoff_depth;
 
-    pnStack = aStack + pnStackPos; /* stack pointer */
+    //pnStack = aStack + pnStackPos; /* stack pointer */
+    pnStack = aStack; /* stack pointer */
+    
     bitfield = mask & ~(aQueenBitCol[numrows] | aQueenBitNegDiag[numrows] | aQueenBitPosDiag[numrows]);
     
     /* this is the critical loop */

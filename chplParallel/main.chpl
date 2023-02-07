@@ -2,6 +2,7 @@ use CTypes;
 use Time;
 use sommers_serial;
 use sommers_node_module;
+use sommers_node_explorer;
 use sommers_partial_search;
 
 
