@@ -1,11 +1,11 @@
 
 module sommers_partial_search{
 
-    use sommers_node_module;
+    use sommers_subproblem_module;
     use CTypes;
 
     proc queens_sommers_partial_search(const board_size:int, const initial_depth:int, 
-        ref subproblems_pool: [] Sommers_subproblem){
+        ref subproblems_pool: [] Sommers_subproblem):(uint(64),uint(64)){
 
     	var aQueenBitRes: [0..#MAX_BOARDSIZE] int;     // results 
         var aQueenBitCol: [0..#MAX_BOARDSIZE] int;     // marks colummns which already have queens 
@@ -14,10 +14,10 @@ module sommers_partial_search{
         var aStack: [0..MAX_BOARDSIZE + 1] int;        // we use a stack instead of recursion 
 
         var stack_position: int = 0;
-        var numrows: int = initial_depth;
+        var numrows: int = 0;
         var lsb: uint(64);
         var bitfield: uint(64);
-        var numsolutions: int = 0;
+        var numsolutions: uint(64) = 0;
         var tree_size: uint(64) = 0;
 
         var i: int;
@@ -112,14 +112,14 @@ module sommers_partial_search{
 
                     if(numrows == initial_depth){
                         for i in 0..initial_depth do{
-                            subproblems_pool[numsolutions].aQueenBitRes[i] = aQueenBitRes[i];
-                            subproblems_pool[numsolutions].aQueenBitCol[i] = aQueenBitCol[i];
-                            subproblems_pool[numsolutions].aQueenBitPosDiag[i] = aQueenBitPosDiag[i];
-                            subproblems_pool[numsolutions].aQueenBitNegDiag[i] = aQueenBitNegDiag[i]; 
+                            subproblems_pool[numsolutions:int].aQueenBitRes[i] = aQueenBitRes[i];
+                            subproblems_pool[numsolutions:int].aQueenBitCol[i] = aQueenBitCol[i];
+                            subproblems_pool[numsolutions:int].aQueenBitPosDiag[i] = aQueenBitPosDiag[i];
+                            subproblems_pool[numsolutions:int].aQueenBitNegDiag[i] = aQueenBitNegDiag[i]; 
                         }
 
                         for i in 0..initial_depth+2 do 
-                            subproblems_pool[numsolutions].subproblem_stack[i] = aStack[i];
+                            subproblems_pool[numsolutions:int].subproblem_stack[i] = aStack[i];
                    
                         numsolutions+=1;
                     }
@@ -136,8 +136,10 @@ module sommers_partial_search{
 
             }//while
         }
+        
+        writeln("\nNumber of Subproblems found: ", numsolutions,".\n");
+        //for i in 0..#numsolutions do writeln(subproblems_pool[i]);
+        return (tree_size,numsolutions);
 
-        writeln("\nNumber of Solutios: ", numsolutions,".\n");
-        for i in 0..#numsolutions do writeln(subproblems_pool[i]);
     }//partial search
 }//module

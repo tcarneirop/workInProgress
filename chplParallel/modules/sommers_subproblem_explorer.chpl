@@ -1,21 +1,20 @@
 
-module sommers_node_explorer{
+module sommers_subproblem_explorer{
 
     use sommers_partial_search;
-    use sommers_node_module;
+    use sommers_subproblem_module;
     use CTypes;
 
-    proc queens_sommers_final_search(const board_size:int, const initial_depth, 
+    proc queens_sommers_final_search(const board_size:int, const initial_depth: int, 
         ref subproblem: Sommers_subproblem){
 
-    	
 
-    	var aQueenBitRes: [0..#MAX_BOARDSIZE] int = subproblem.aQueenBitRes;     // results 
-        var aQueenBitCol: [0..#MAX_BOARDSIZE] int = subproblem.aQueenBitCol;     // marks colummns which already have queens 
-        var aQueenBitPosDiag: [0..#MAX_BOARDSIZE] int = subproblem.aQueenBitPosDiag; // marks "positive diagonals" which already have queens 
-        var aQueenBitNegDiag: [0..#MAX_BOARDSIZE] int = subproblem.aQueenBitNegDiag; // marks "negative diagonals" which already have queens 
-        var aStack: [0..MAX_BOARDSIZE + 1] int = subproblem.subproblem_stack;        // we use a stack instead of recursion 
-        ref pnStack = aStack;
+    	ref aQueenBitRes = subproblem.aQueenBitRes;     // results 
+        ref aQueenBitCol = subproblem.aQueenBitCol;     // marks colummns which already have queens 
+        ref aQueenBitPosDiag = subproblem.aQueenBitPosDiag; // marks "positive diagonals" which already have queens 
+        ref aQueenBitNegDiag = subproblem.aQueenBitNegDiag; // marks "negative diagonals" which already have queens 
+        ref aStack  = subproblem.subproblem_stack;        // we use a stack instead of recursion 
+        //ref pnStack = aStack;
         //register long long int* pnStack;
         
 
@@ -97,8 +96,8 @@ module sommers_node_explorer{
         }//while
     
  
-        subproblem.numsolutions = local_num_sols;
-        return tree_size;
+       
+        return (tree_size, numsolutions);
     }//final search
 
 }//module

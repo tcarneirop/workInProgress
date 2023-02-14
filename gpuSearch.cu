@@ -234,8 +234,9 @@ unsigned long long partial_search_64(long long board_size, long long cutoff_dept
 
 
 __global__ void gpu_final_search_64(long long board_size, long long cutoff_depth, 
-    unsigned long long num_subproblems, Subproblem* subproblems, unsigned long long *tree_size_d,
-    unsigned long long *sols_d){
+    unsigned long long num_subproblems, Subproblem* __restrict__ subproblems, 
+    unsigned long long * __restrict__ tree_size_d,
+    unsigned long long * __restrict__ sols_d){
 
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -360,8 +361,6 @@ unsigned long long mcore_final_search(long long board_size, long long cutoff_dep
     register unsigned long long bitfield; 
 
     
-
-
     register long long numrows = cutoff_depth;
 
     //pnStack = aStack + pnStackPos; /* stack pointer */
@@ -393,6 +392,7 @@ unsigned long long mcore_final_search(long long board_size, long long cutoff_dep
         bitfield &= ~lsb; /* toggle off this bit so we don't try it again */
 
         aQueenBitRes[numrows] = lsb; /* save the result */
+        
         if (numrows < board_minus) /* we still have more rows to process? */
         {
         

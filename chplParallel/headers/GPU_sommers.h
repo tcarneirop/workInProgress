@@ -1,7 +1,7 @@
 #ifndef GPU_QUEENS_H
 #define GPU_QUEENS_H
 
-#define MAX_BOARDSIZE 64
+#define MAX_BOARDSIZE 32
 
 
 typedef struct sommers_subproblem{
@@ -12,7 +12,6 @@ typedef struct sommers_subproblem{
     long long  aQueenBitNegDiag[MAX_BOARDSIZE]; /* marks "negative diagonals" which already have queens */
     long long  subproblem_stack[MAX_BOARDSIZE+2]; /* we use a stack instead of recursion */
     long long   pnStackPos;
-    unsigned long long num_sols_sub;
 
 } SommersSubproblem;
 
