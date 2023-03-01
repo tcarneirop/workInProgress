@@ -26,40 +26,39 @@ module sommers_mcore_search{
 
         var rangeDynamic: range = 0..#pool_size;
 
-        forall subproblem in dynamic(rangeDynamic) with (+reduce metrics) do{
-        
+        forall subproblem in dynamic(rangeDynamic) with (+reduce metrics) do{  
         //forall subproblem in 0..#pool_size with (+reduce metrics) do{
            metrics += queens_sommers_final_search(board_size, initial_depth, subproblem_pool[subproblem]);
         }
         
         writeln(metrics);
 
-        //  select scheduler{
+        select scheduler{
 
-        //     when "static" {
+        when "static" {
         //         forall idx in 0..initial_num_prefixes-1 with (+ reduce metrics) do {
         //              metrics+=queens_node_subtree_exporer(size,initial_depth,set_of_nodes[idx].board,set_of_nodes[idx].control);    
         //         }
-        //     }
-        //     when "dynamic" {
+        }
+        when "dynamic" {
         //         forall idx in dynamic(rangeDynamic, chunk, num_threads) with (+ reduce metrics) do {
         //             metrics+=queens_node_subtree_exporer(size,initial_depth,set_of_nodes[idx:uint(64)].board,set_of_nodes[idx:uint(64)].control);
         //         }
-        //     }
-        //     when "guided" {
+        }
+        when "guided" {
         //         forall idx in guided(rangeDynamic,num_threads) with (+ reduce metrics) do {
         //             metrics+=queens_node_subtree_exporer(size,initial_depth,set_of_nodes[idx:uint(64)].board, set_of_nodes[idx:uint(64)].control);
         //         }
         //     }
-        //     when "stealing" {
+       when "stealing" {
         //         forall idx in adaptive(rangeDynamic,num_threads) with (+ reduce metrics) do {
         //             metrics+=queens_node_subtree_exporer(size,initial_depth,set_of_nodes[idx:uint(64)].board, set_of_nodes[idx:uint(64)].control);
         //         }
         //     }
-        //     otherwise{
+        otherwise{
         //         writeln("\n\n ###### error ######\n\n ###### error ######\n\n ###### error ###### ");
-        //     }
-        // }//select
+        }
+        }//select
 
     }
 
